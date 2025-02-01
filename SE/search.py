@@ -7,7 +7,7 @@ with open("rev_keywords.json", "r") as f:
 with open("page_rank_scores.json", "r") as f:
     scores = json.load(f)
     
-q = "who is the president of france?"
+q = "stephen cook"
 words = [t.lower() for t in (re.sub('[^a-zA-Z]+', ' ', q)).split()]
 
 poss = {}
