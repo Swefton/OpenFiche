@@ -4,6 +4,20 @@ import matplotlib.pyplot as plt
 
 with open("webgraph.json", "r") as f:
     data = json.load(f)
+    
+def save_to_json(data, filename="page_rank_scores.json"):
+    try:
+        with open(filename, "r") as file:
+            existing_data = json.load(file)
+    except (FileNotFoundError, json.JSONDecodeError):
+        existing_data = {}
+
+    # Add new data to the existing JSON data
+    existing_data.update(data)
+
+    # Write the updated data back to the file
+    with open(filename, "w") as file:
+        json.dump(existing_data, file, indent=4)
 
 into = {}
 outof = {}
@@ -43,7 +57,10 @@ for _ in range(num_iterations):
     if max_delta < tolerance:  # Check for convergence
         break
 
+ma = {}
 # Sort and Display Results
 sorted_pagerank = sorted(pagerank.items(), key=lambda x: x[1], reverse=True)
 for node, rank in sorted_pagerank:  # Show top 10 ranked pages
-    print(f"{node}: {rank:.6f}")
+    ma[node] = rank * 10**(5)
+
+save_to_json(ma)
