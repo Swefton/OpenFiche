@@ -1,7 +1,7 @@
 import sys
 import requests
 from bs4 import BeautifulSoup
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urljoin
 from PyQt5.QtCore import Qt, QUrl
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QWidget,
@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import (
     QListWidget, QListWidgetItem
 )
 from PyQt5.QtWebEngineWidgets import QWebEngineView
-import networkx as nx 
+import networkx as nx
 import matplotlib.pyplot as plt
 
 class BrowserWindow(QMainWindow):
@@ -67,6 +67,7 @@ class BrowserWindow(QMainWindow):
         self.setCentralWidget(self.central_widget)
 
         self.browser.urlChanged.connect(self.update_current_url)
+        self.browser.loadFinished.connect(self.on_load_finished)
 
     def is_valid_url(self, input_text):
         """Check if the input is a valid URL."""
@@ -79,32 +80,28 @@ class BrowserWindow(QMainWindow):
         self.current_url = url.toString()
         self.search_input.setText(self.current_url)
 
-        # Add the current page to the graph if it's a valid navigation
-        if self.previous_url:
-            self.graph.add_edge(self.previous_url, self.current_url)
-
-        # Print the current state of the graph for debugging
-        self.print_graph()
-
     def perform_search(self):
+        """Handle search queries from the address bar."""
         search_input = self.search_input.text().strip()
         if not search_input:
             return
 
         if self.is_valid_url(search_input):
+            # Add a new node for the new URL without connecting it
+            self.graph.add_node(search_input)  # Add the new node for the URL
             self.browser.setUrl(QUrl(search_input))
         elif search_input.startswith("www."):
+            self.graph.add_node(f"https://{search_input}")  # Add the node
             self.browser.setUrl(QUrl(f"https://{search_input}"))
         else:
             search_url = f"https://www.google.com/search?q={search_input}"
+            self.graph.add_node(search_url)  # Add the node for search URL
             self.browser.setUrl(QUrl(search_url))
-
-    def add_to_history_list(self, url):
-        """Add a URL to the QListWidget for display."""
-        item = QListWidgetItem(url)
-        self.history_list.addItem(item)
+        
+        self.print_graph()
 
     def toggle_reader_mode(self):
+        """Toggle between reader mode and regular browsing mode."""
         self.reader_mode = not self.reader_mode
 
         if self.reader_mode:
@@ -117,6 +114,7 @@ class BrowserWindow(QMainWindow):
             self.browser.show()
 
     def fetch_and_display_content(self, url):
+        """Fetch the content and display it in a customized reader view."""
         try:
             response = requests.get(url, timeout=10)
             response.raise_for_status()
@@ -149,6 +147,7 @@ class BrowserWindow(QMainWindow):
             self.reader_view.setText(f"Error loading page: {e}")
 
     def toggle_history_view(self):
+        """Toggle between showing the history list and the web browser."""
         if self.history_list.isVisible():
             self.layout.removeWidget(self.history_list)
             self.history_list.hide()
@@ -162,9 +161,18 @@ class BrowserWindow(QMainWindow):
             self.reader_view.hide()
 
     def load_from_history(self, item):
+        """Load the URL selected from the history list."""
         url = item.text()
         self.browser.setUrl(QUrl(url))
         self.toggle_history_view()
+
+    def on_load_finished(self, success):
+        """Handle actions after a page has finished loading."""
+        if success:
+            # Only add an edge if navigating through a hyperlink
+            if self.previous_url and self.current_url != self.previous_url:
+                self.graph.add_edge(self.previous_url, self.current_url)  # Add edge between current and previous URLs
+                self.print_graph()
 
     def print_graph(self):
         """Print the current state of the graph to the terminal."""
