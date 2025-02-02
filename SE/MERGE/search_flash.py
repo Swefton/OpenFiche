@@ -13,9 +13,16 @@ with open("rev_keywords_npr.json", "r") as f:
 with open("rev_keywords_cnn.json", "r") as f:
     data.update(json.load(f))
 
+with open("rev_keywords_wiki.json", "r") as f:
+    data.update(json.load(f))
+
 with open("page_rank_scores_npr.json", "r") as f:
     scores = json.load(f)
+    
 with open("page_rank_scores_cnn.json", "r") as f:
+    scores.update(json.load(f))
+
+with open("page_rank_scores_wiki.json", "r") as f:
     scores.update(json.load(f))
 
 @app.route("/search", methods=["GET"])
