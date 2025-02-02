@@ -18,46 +18,67 @@ body {
   font-family: 'Segoe UI', sans-serif;
 }
 
-/* Layout Containers */
 .app-container {
   display: flex;
   min-height: 100vh;
 }
 
-/* Sidebar (Search History) */
+/* SIDEBAR */
 .sidebar {
-  width: 300px;
+  position: relative; /* so headers can be absolutely placed inside */
   background-color: var(--input-bg);
   border-right: 1px solid var(--border-color);
   box-shadow: var(--shadow);
   transition: width 0.3s ease;
+  min-height: 100vh;  /* fill full vertical space */
   overflow-y: auto;
+  width: 300px;       /* default open width */
 }
+
+.sidebar.open {
+  width: 300px;
+  overflow: auto;  /* normal scrolling when open */
+}
+
 .sidebar.collapsed {
-  width: 40px;
+  width: 0;
+  overflow: visible; /* keep icon clickable even though width=0 */
 }
-.sidebar-header {
+
+/* ========== HEADERS (expanded vs collapsed) ========== */
+.expanded-header,
+.collapsed-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  /* Enough height to show the icon nicely. Adjust as needed. */
+  height: 50px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 1rem;
-  border-bottom: 1px solid var(--border-color);
+  padding: 0 0.75rem;
+  border-bottom: 0px solid var(--border-color);
   cursor: pointer;
 }
-.sidebar-title {
-  font-size: 1.25rem;
-  margin: 0;
-}
+
+/* Icon always shows. */
 .sidebar-icon {
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-/* History Tree (One‑Level) */
+/* Title only appears in expanded mode. */
+.sidebar-title {
+  font-size: 1.25rem;
+  margin: 0;
+  margin-left: 0.5rem;
+}
+
+/* ========== HISTORY TREE ========== */
 .history-tree {
   list-style: none;
-  padding: 0.5rem;
+  padding: 60px 0.5rem 0.5rem; 
+  /* ^ Note the '60px' top padding to leave room for your header. */
   margin: 0;
 }
 .tree-node {
@@ -68,7 +89,6 @@ body {
   align-items: center;
   padding: 0.5rem 0.75rem;
   background-color: var(--input-bg);
-  border-radius: 0px;
   cursor: pointer;
   transition: background-color 0.3s ease;
 }
@@ -95,7 +115,7 @@ body {
   background-color: var(--accent-color);
   font-weight: bold;
 }
-/* Children (Articles) */
+/* Children (articles) */
 .tree-children {
   list-style: none;
   padding-left: 1rem;
@@ -103,22 +123,40 @@ body {
   border-left: 2px solid var(--border-color);
 }
 
-/* Main Content Area */
+/* ========== MAIN CONTENT ========== */
 .main-content {
   flex: 1;
   padding: 1.5rem;
 }
+
+/* App Header */
 .app-header {
   text-align: center;
   margin-bottom: 1.5rem;
 }
-.app-title {
-  margin: 20px;
-  font-size: 2.5rem;
-  color: var(--accent-color);
+
+.title-and-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 20px;
 }
 
-/* Search Form */
+.app-title {
+  font-size: 2.5rem;
+  color: var(--accent-color);
+  margin: 20px 0;
+}
+
+.app-icon {
+  width: 48px;
+  height: 48px;
+  margin-top: -5px;
+  padding-left: 10px;
+}
+
+/* ========== SEARCH FORM ========== */
 .search-form {
   max-width: 800px;
   margin: 0 auto 2rem auto;
@@ -154,7 +192,7 @@ body {
   background-color: var(--input-bg);
 }
 
-/* Results */
+/* ========== RESULTS ========== */
 .results {
   max-width: 800px;
   margin: 0 auto;
@@ -165,6 +203,17 @@ body {
   box-shadow: var(--shadow);
   margin-bottom: 1.5rem;
   padding: 1rem;
+  display: flex;
+  align-items: center;
+}
+.result-logo {
+  width: 2em;
+  height: 2em;
+  margin-right: 1rem;
+  object-fit: contain;
+}
+.result-content {
+  flex: 1;
 }
 .result-title {
   margin: 0 0 0.5rem 0;
@@ -178,9 +227,10 @@ body {
 .result-title a:hover {
   text-decoration: underline;
 }
-.result-snippet {
+.result-description {
   font-size: 1rem;
-  margin-bottom: 1rem;
+  margin: 0.5rem 0;
+  color: var(--text-color);
 }
 .result-link {
   display: inline-block;
@@ -201,158 +251,4 @@ body {
   text-align: center;
   font-size: 1.2rem;
   margin: 1rem 0;
-}
-
-/* Result Items: Display as card with logo to the left */
-.result-item {
-  background-color: var(--input-bg);
-  border-radius: 8px;
-  box-shadow: var(--shadow);
-  margin-bottom: 1.5rem;
-  padding: 1rem;
-  display: flex;
-  align-items: center;
-}
-
-/* Logo displayed to the left of the text */
-.result-logo {
-  width: 2em;
-  height: 2em;
-  margin-right: 1rem;
-  object-fit: contain;
-}
-
-/* Container for the text content of a result */
-.result-content {
-  flex: 1;
-}
-
-/* Optional: Adjust spacing for the result title and link */
-.result-title {
-  margin: 0 0 0.5rem 0;
-  font-size: 1.5rem;
-  color: var(--accent-color);
-}
-
-.result-title a {
-  text-decoration: none;
-  color: inherit;
-}
-
-.result-title a:hover {
-  text-decoration: underline;
-}
-
-.result-link {
-  display: inline-block;
-  padding: 0.5rem 1rem;
-  background-color: var(--accent-color);
-  color: var(--text-color);
-  border-radius: 4px;
-  text-decoration: none;
-  transition: background-color 0.3s ease;
-}
-
-.result-link:hover {
-  background-color: var(--input-bg);
-}
-
-.result-title {
-  font-weight: normal;
-}
-
-/* Result Items: Display as card with logo to the left */
-.result-item {
-  background-color: var(--input-bg);
-  border-radius: 8px;
-  box-shadow: var(--shadow);
-  margin-bottom: 1.5rem;
-  padding: 1rem;
-  display: flex;
-  align-items: center;
-}
-
-/* Logo displayed to the left of the text */
-.result-logo {
-  width: 2em;
-  height: 2em;
-  margin-right: 1rem;
-  object-fit: contain;
-}
-
-/* Container for the text content of a result */
-.result-content {
-  flex: 1;
-}
-
-/* Result title styling */
-.result-title {
-  margin: 0 0 0.5rem 0;
-  font-size: 1.5rem;
-  color: var(--accent-color);
-}
-
-.result-title a {
-  text-decoration: none;
-  color: inherit;
-}
-
-.result-title a:hover {
-  text-decoration: underline;
-}
-
-/* Description styling */
-.result-description {
-  font-size: 1rem;
-  margin: 0.5rem 0;
-  color: var(--text-color);
-}
-
-/* Link styling */
-.result-link {
-  display: inline-block;
-  padding: 0.5rem 1rem;
-  background-color: var(--accent-color);
-  color: var(--text-color);
-  border-radius: 4px;
-  text-decoration: none;
-  transition: background-color 0.3s ease;
-}
-
-.result-link:hover {
-  background-color: var(--input-bg);
-}
-
-.app-icon {
-  width: 48px; /* Adjust size as needed */
-  height: 48px;
-  margin-right: 8px; /* Add some spacing */
-}
-
-.app-title-container { /* New container for title and icon */
-  display: flex;
-  align-items: center; /* Vertically align items */
-  margin: 20px;
-}
-
-.app-title {
-  font-size: 2.5rem;
-  color: var(--accent-color);
-  margin: 0; 
-  margin-left: 8px; /* Space between icon and title */
-}
-
-.app-icon {
-  padding-left: 10px;
-  width: 48px;
-  height: 48px;
-  margin-top: -5px;
-}
-
-.title-and-icon {
-  display: flex;
-  align-items: center; /* Aligns items vertically */
-  gap: 10px; /* Adjust spacing between elements */
-  justify-content: center;
-  margin-bottom: 20px;
 }
