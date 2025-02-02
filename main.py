@@ -18,13 +18,13 @@ class BrowserWindow(QMainWindow):
         self.setWindowTitle("Custom Reader Mode with History")
         self.setGeometry(100, 100, 900, 700)
 
-        self.current_url = ""
         self.reader_mode = False
         self.history = []  # Store visited links
 
         self.browser = QWebEngineView()
         self.browser.setUrl(QUrl("https://www.reada.wiki/"))
-        self.reader_view = QTextBrowser()
+        self.current_url = "https://www.reada.wiki/"
+        self.reader_view = QWebEngineView()
         self.reader_view.hide()
 
         self.history_list = QListWidget()
@@ -75,11 +75,20 @@ class BrowserWindow(QMainWindow):
         # self.history_list.setStyleSheet("border: 2px solid green;")
         # self.central_widget.setStyleSheet("border: 2px solid yellow;")
 
-
     def is_valid_url(self, input_text):
         """Check if the input is a valid URL."""
         parsed_url = urlparse(input_text)
         return all([parsed_url.scheme, parsed_url.netloc])
+    
+    def update_current_url(self, url: QUrl):
+        """Update the URL in the search bar when the page changes."""
+        self.current_url = url.toString()
+        self.search_input.setText(self.current_url)  # Update URL bar
+        # Optionally, add to history if it's a new URL
+        if self.current_url and (not self.history or self.current_url != self.history[-1]):
+            self.history.append(self.current_url)
+            self.add_to_history_list(self.current_url)
+
 
     def perform_search(self):
         search_input = self.search_input.text().strip()
@@ -135,29 +144,41 @@ class BrowserWindow(QMainWindow):
             soup = BeautifulSoup(response.content, 'html.parser')
 
             content = ""
+            
+            # Filter out unwanted elements like advertisements, sidebars, or sponsor messages
+            for ad_tag in soup.find_all(class_=['ad-wrap', 'sponsor', 'bucket', 'secondary']):
+                ad_tag.decompose()  # Removes the unwanted tag from the tree
+
+            # Extract desired tags: h1, h2, h3, p (headings and paragraphs)
             for tag in soup.find_all(['h1', 'h2', 'h3', 'p']):
+                # Skip unwanted elements by excluding specific text or classes
                 if tag.name in ['h1', 'h2', 'h3']:
                     content += f"<h2 style='color:#FFFFFF;'>{tag.get_text()}</h2>"
                 elif tag.name == 'p':
-                    content += f"<p style='color:#DDDDDD; line-height:1.6;'>{tag.get_text()}</p>"
+                    # Ensure we are getting the right paragraphs (skip non-content or small text)
+                    if not tag.find_parent(class_='footer') and not tag.find_parent(class_='ad-wrap'):
+                        content += f"<p style='color:#DDDDDD; line-height:1.6;'>{tag.get_text()}</p>"
 
             # Final HTML structure with dark mode styling
             dark_mode_html = f"""
-                <html>
-                <body style='background-color:#121212; padding:20px; font-family:Arial, sans-serif;'>
-                    {content}
+            <html>
+                <body style='font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; background-color: #333333;'>
+                    <div style='width: 100%; max-width: 60%; padding: 20px; background-color: #1e1e1e; box-sizing: border-box;'>
+                        {content}
+                    </div>
                 </body>
-                </html>
+            </html>
             """
-
+            
+            # Display in the QTextBrowser
             self.reader_view.setHtml(dark_mode_html)
 
         except requests.RequestException as e:
             self.reader_view.setText(f"Error loading page: {e}")
 
+
     def toggle_history_view(self):
         """Dynamically add or remove the history panel."""
-        print(self.reader_mode)
         if self.history_list.isVisible():
             self.layout.removeWidget(self.history_list)
             self.history_list.hide()
