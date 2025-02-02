@@ -4,9 +4,8 @@ import re
 import json
 
 app = Flask(__name__)
-CORS(app)  # Allows all domains (Not secure for production)
+CORS(app)
 
-# Load data
 with open("rev_keywords_npr.json", "r") as f:
     data = json.load(f)
 
@@ -23,7 +22,9 @@ with open("page_rank_scores_cnn.json", "r") as f:
     scores.update(json.load(f))
 
 with open("page_rank_scores_wiki.json", "r") as f:
-    scores.update(json.load(f))
+    l = json.load(f)
+    for k in l: l[k] *= 25
+    scores.update(l)
 
 @app.route("/search", methods=["GET"])
 def search():
@@ -34,7 +35,7 @@ def search():
         if w not in data: 
             continue
         for l in data[w]:
-            poss[l] = poss.get(l, 0) + 1
+            poss[l] = poss.get(l, 0) + (1 if "wikipedia" not in l else 10)
 
         for l in scores:
             if w in l:
@@ -44,9 +45,9 @@ def search():
                     poss[l] = 1
 
     results = [(poss[l] * scores[l], l) for l in poss]
-    results.sort(reverse=True)  # Sort descending
-
-    return jsonify(results[:25])  # Return top 10 results
+    results.sort(reverse=True)  
+    
+    return jsonify(results[:25])
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080, debug=True)
