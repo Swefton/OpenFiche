@@ -23,6 +23,7 @@ class BrowserWindow(QMainWindow):
         self.history = []  # Store visited links
 
         self.browser = QWebEngineView()
+        self.browser.setUrl(QUrl("https://www.reada.wiki/"))
         self.reader_view = QTextBrowser()
         self.reader_view.hide()
 
@@ -134,17 +135,13 @@ class BrowserWindow(QMainWindow):
             soup = BeautifulSoup(response.content, 'html.parser')
 
             content = ""
-            for tag in soup.find_all(['h1', 'h2', 'h3', 'p', 'img']):
+            for tag in soup.find_all(['h1', 'h2', 'h3', 'p']):
                 if tag.name in ['h1', 'h2', 'h3']:
                     content += f"<h2 style='color:#FFFFFF;'>{tag.get_text()}</h2>"
                 elif tag.name == 'p':
                     content += f"<p style='color:#DDDDDD; line-height:1.6;'>{tag.get_text()}</p>"
-                elif tag.name == 'img' and tag.get('src'):
-                    img_src = tag['src']
-                    if not img_src.startswith(('http://', 'https://')):
-                        img_src = requests.compat.urljoin(url, img_src)
-                    content += f"<img src='{img_src}' style='max-width:100%; height:auto;'/>"
 
+            # Final HTML structure with dark mode styling
             dark_mode_html = f"""
                 <html>
                 <body style='background-color:#121212; padding:20px; font-family:Arial, sans-serif;'>
