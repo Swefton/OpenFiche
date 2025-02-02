@@ -1,0 +1,3 @@
+## Setting up the search engine
+
+For any scrapable website, use ```scrape.py``` to turn it into a webgraph (.json) file. Using this ```get_keys.py```, get the keywords for each node/website that will be used for search engine relevance ranking (you also need to 'reverse' it using ```rev_keys.py```). Finally, use ```get_scores.py``` to get page rank scores from the webgraph file. Together, you should have a ```rev_keywords_src.json``` and ```page_rank_scores_src.json``` file which are used by the search engine. You can create a src specific search engine like in NPR/WIKI/CNN or merge them for one search engine like MERGE. 
