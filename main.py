@@ -25,24 +25,14 @@ class CustomWebEnginePage(QWebEnginePage):
     """
     def __init__(self, parent_tab, create_tab_callback):
         super().__init__(parent_tab)
-        self.parent_tab = parent_tab
         self.create_tab_callback = create_tab_callback
 
     def createWindow(self, window_type):
-    # Accept any window request as a new tab
-        if window_type in (
-            QWebEnginePage.WebBrowserTab,
-            QWebEnginePage.WebBrowserBackgroundTab,
-            QWebEnginePage.WebBrowserWindow,
-            QWebEnginePage.WebDialog,
-            3
-        ):
-            new_tab = BrowserTab(create_tab_callback=self.create_blank_tab,
-                     url="https://www.reada.wiki/")
-
+        """Prevents unnecessary duplicate tab creation"""
+        if window_type == QWebEnginePage.WebBrowserTab:
+            new_tab = self.create_tab_callback()
             return new_tab.browser.page()
-
-        return super().createWindow(window_type)
+        return None
 
 
 class BrowserTab(QWidget):
@@ -223,7 +213,20 @@ class BrowserTab(QWidget):
 
         pos = nx.spring_layout(self.graph, seed=42, k=0.8, scale=10)
         node_positions = {node: (pos[node][0], pos[node][1]) for node in self.graph.nodes}
-        x_data, y_data = zip(*node_positions.values()) if node_positions else ([], [])
+        
+        # Ensure there's data
+        if not node_positions:
+            return
+        
+        x_data, y_data = zip(*node_positions.values())
+
+        # Set a fixed zoom level based on node positions
+        padding = 1  # Adjust for better spacing
+        xmin, xmax = min(x_data) - padding, max(x_data) + padding
+        ymin, ymax = min(y_data) - padding, max(y_data) + padding
+
+        # Apply fixed range to prevent continuous zooming
+        plot_item.getViewBox().setRange(xRange=(xmin, xmax), yRange=(ymin, ymax))
 
         scatter = pg.ScatterPlotItem(x_data, y_data, size=20, brush=pg.mkBrush("blue"))
         plot_item.addItem(scatter)
@@ -261,6 +264,7 @@ class BrowserTab(QWidget):
         self.graph_view.show()
         self.browser.hide()
         self.reader_view.hide()
+
 
     def on_load_finished(self, success):
         if success:
