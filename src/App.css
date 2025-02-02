@@ -1,0 +1,358 @@
+/* Rose Pine Dark Theme */
+:root {
+  --bg-color: #191724;
+  --text-color: #e0def4;
+  --accent-color: #3e8fb0;
+  --input-bg: #2a273f;
+  --input-text: #e0def4;
+  --border-color: #555;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Global Styles */
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  font-family: 'Segoe UI', sans-serif;
+}
+
+/* Layout Containers */
+.app-container {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* Sidebar (Search History) */
+.sidebar {
+  width: 300px;
+  background-color: var(--input-bg);
+  border-right: 1px solid var(--border-color);
+  box-shadow: var(--shadow);
+  transition: width 0.3s ease;
+  overflow-y: auto;
+}
+.sidebar.collapsed {
+  width: 40px;
+}
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-color);
+  cursor: pointer;
+}
+.sidebar-title {
+  font-size: 1.25rem;
+  margin: 0;
+}
+.sidebar-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* History Tree (One‑Level) */
+.history-tree {
+  list-style: none;
+  padding: 0.5rem;
+  margin: 0;
+}
+.tree-node {
+  margin: 0.5rem 0;
+}
+.node-content {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  background-color: var(--input-bg);
+  border-radius: 0px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+.node-content:hover {
+  background-color: var(--accent-color);
+}
+.toggle-icon {
+  margin-right: 0.5rem;
+  font-size: 0.9rem;
+  user-select: none;
+}
+.node-label {
+  flex: 1;
+  font-weight: normal;
+}
+.delete-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  color: var(--text-color);
+}
+.tree-node.active .node-content {
+  background-color: var(--accent-color);
+  font-weight: bold;
+}
+/* Children (Articles) */
+.tree-children {
+  list-style: none;
+  padding-left: 1rem;
+  margin-top: 0.5rem;
+  border-left: 2px solid var(--border-color);
+}
+
+/* Main Content Area */
+.main-content {
+  flex: 1;
+  padding: 1.5rem;
+}
+.app-header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+.app-title {
+  margin: 20px;
+  font-size: 2.5rem;
+  color: var(--accent-color);
+}
+
+/* Search Form */
+.search-form {
+  max-width: 800px;
+  margin: 0 auto 2rem auto;
+  display: flex;
+}
+.search-input {
+  flex: 1;
+  padding: 0.75rem;
+  border: 2px solid var(--border-color);
+  border-right: none;
+  border-radius: 8px 0 0 8px;
+  background-color: var(--input-bg);
+  color: var(--input-text);
+  font-size: 1rem;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.search-input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 5px var(--accent-color);
+}
+.search-button {
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--border-color);
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+  background-color: var(--accent-color);
+  color: var(--text-color);
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+.search-button:hover {
+  background-color: var(--input-bg);
+}
+
+/* Results */
+.results {
+  max-width: 800px;
+  margin: 0 auto;
+}
+.result-item {
+  background-color: var(--input-bg);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+}
+.result-title {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.5rem;
+  color: var(--accent-color);
+}
+.result-title a {
+  text-decoration: none;
+  color: inherit;
+}
+.result-title a:hover {
+  text-decoration: underline;
+}
+.result-snippet {
+  font-size: 1rem;
+  margin-bottom: 1rem;
+}
+.result-link {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background-color: var(--accent-color);
+  color: var(--text-color);
+  border-radius: 4px;
+  text-decoration: none;
+  transition: background-color 0.3s ease;
+}
+.result-link:hover {
+  background-color: var(--input-bg);
+}
+
+/* Loading & Error Messages */
+.loading,
+.error {
+  text-align: center;
+  font-size: 1.2rem;
+  margin: 1rem 0;
+}
+
+/* Result Items: Display as card with logo to the left */
+.result-item {
+  background-color: var(--input-bg);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+}
+
+/* Logo displayed to the left of the text */
+.result-logo {
+  width: 2em;
+  height: 2em;
+  margin-right: 1rem;
+  object-fit: contain;
+}
+
+/* Container for the text content of a result */
+.result-content {
+  flex: 1;
+}
+
+/* Optional: Adjust spacing for the result title and link */
+.result-title {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.5rem;
+  color: var(--accent-color);
+}
+
+.result-title a {
+  text-decoration: none;
+  color: inherit;
+}
+
+.result-title a:hover {
+  text-decoration: underline;
+}
+
+.result-link {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background-color: var(--accent-color);
+  color: var(--text-color);
+  border-radius: 4px;
+  text-decoration: none;
+  transition: background-color 0.3s ease;
+}
+
+.result-link:hover {
+  background-color: var(--input-bg);
+}
+
+.result-title {
+  font-weight: normal;
+}
+
+/* Result Items: Display as card with logo to the left */
+.result-item {
+  background-color: var(--input-bg);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+}
+
+/* Logo displayed to the left of the text */
+.result-logo {
+  width: 2em;
+  height: 2em;
+  margin-right: 1rem;
+  object-fit: contain;
+}
+
+/* Container for the text content of a result */
+.result-content {
+  flex: 1;
+}
+
+/* Result title styling */
+.result-title {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.5rem;
+  color: var(--accent-color);
+}
+
+.result-title a {
+  text-decoration: none;
+  color: inherit;
+}
+
+.result-title a:hover {
+  text-decoration: underline;
+}
+
+/* Description styling */
+.result-description {
+  font-size: 1rem;
+  margin: 0.5rem 0;
+  color: var(--text-color);
+}
+
+/* Link styling */
+.result-link {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background-color: var(--accent-color);
+  color: var(--text-color);
+  border-radius: 4px;
+  text-decoration: none;
+  transition: background-color 0.3s ease;
+}
+
+.result-link:hover {
+  background-color: var(--input-bg);
+}
+
+.app-icon {
+  width: 48px; /* Adjust size as needed */
+  height: 48px;
+  margin-right: 8px; /* Add some spacing */
+}
+
+.app-title-container { /* New container for title and icon */
+  display: flex;
+  align-items: center; /* Vertically align items */
+  margin: 20px;
+}
+
+.app-title {
+  font-size: 2.5rem;
+  color: var(--accent-color);
+  margin: 0; 
+  margin-left: 8px; /* Space between icon and title */
+}
+
+.app-icon {
+  padding-left: 10px;
+  width: 48px;
+  height: 48px;
+  margin-top: -5px;
+}
+
+.title-and-icon {
+  display: flex;
+  align-items: center; /* Aligns items vertically */
+  gap: 10px; /* Adjust spacing between elements */
+  justify-content: center;
+  margin-bottom: 20px;
+}
