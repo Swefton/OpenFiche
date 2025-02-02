@@ -1,43 +1,33 @@
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget
-from PyQt5.QtWebEngineWidgets import QWebEngineView
-from PyQt5.QtCore import QUrl
-import os
+from PyQt5.QtWebEngineWidgets import QWebEnginePage
+from PyQt5.QtCore import QUrl, QCoreApplication
+from PyQt5.QtWidgets import QApplication
+import sys
 
+class TitleFetcher:
+    def __init__(self, app):
+        self.app = app
 
-# test cnn, npr, wikipedia
+    def get_title_from_url(self, url):
+        page = QWebEnginePage()  # Headless, no UI
+        page.load(QUrl(url))
 
-class ReaderModeApp(QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Reader Mode Example")
-        self.setGeometry(100, 100, 800, 600)
+        def handle_load_finished():
+            page.runJavaScript("document.title", lambda title: self.handle_title_result(title, url))
 
-        self.web_view = QWebEngineView()
+        page.loadFinished.connect(handle_load_finished)
 
-        self.toggle_button = QPushButton("Reload Reader Mode")
-        self.toggle_button.clicked.connect(self.load_local_file)
-
-        layout = QVBoxLayout()
-        layout.addWidget(self.toggle_button)
-        layout.addWidget(self.web_view)
-
-        container = QWidget()
-        container.setLayout(layout)
-        self.setCentralWidget(container)
-
-        # Load the local HTML file initially
-        self.load_local_file()
-
-    def load_local_file(self):
-        local_file_path = os.path.abspath("reader_mode_test.html")
-        if os.path.exists(local_file_path):
-            self.web_view.load(QUrl.fromLocalFile(local_file_path))
-        else:
-            self.web_view.setHtml("<h2 style='color: red;'>File not found: reader_mode_test.html</h2>")
+    def handle_title_result(self, title, url):
+        print(f"URL: {url}")
+        print(f"Page Title: {title}")
+        self.app.quit()  # Exit the app after fetching the title
 
 if __name__ == "__main__":
-    import sys
     app = QApplication(sys.argv)
-    window = ReaderModeApp()
-    window.show()
+    fetcher = TitleFetcher(app)
+
+    # Test URL
+    test_url = "https://www.google.com/search?q=apple"
+    fetcher.get_title_from_url(test_url)
+
+    # Run the event loop
     sys.exit(app.exec_())

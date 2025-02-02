@@ -1,14 +1,16 @@
 import sys
 import requests
 from bs4 import BeautifulSoup
-from urllib.parse import urlparse, urljoin
+from urllib.parse import urlparse
 from PyQt5.QtCore import Qt, QUrl
+from PyQt5.QtCore import QEventLoop
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QWidget,
     QLineEdit, QPushButton, QHBoxLayout,
-    QListWidget, QListWidgetItem
+    QListWidget
 )
 from PyQt5.QtWebEngineWidgets import QWebEngineView
+from PyQt5.QtWebEngineWidgets import QWebEnginePage
 import networkx as nx
 import matplotlib.pyplot as plt
 
@@ -16,13 +18,15 @@ class BrowserWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("Custom Reader Mode with History")
+        self.setWindowTitle("OpenFiche Net")
         self.setGeometry(100, 100, 900, 700)
 
         self.reader_mode = False
         self.graph = nx.DiGraph()
         self.current_url = "https://www.reada.wiki/"
         self.previous_url = None
+        self.current_title = "Home"
+        self.previous_title = ""
 
         self.browser = QWebEngineView()
         self.browser.setUrl(QUrl(self.current_url))
@@ -78,24 +82,21 @@ class BrowserWindow(QMainWindow):
         """Update the URL in the search bar when the page changes."""
         self.previous_url = self.current_url  # Store the previous URL
         self.current_url = url.toString()
+        self.current_title = "Current title" # TODO CHANGE
         self.search_input.setText(self.current_url)
 
     def perform_search(self):
-        """Handle search queries from the address bar."""
+        """Handle search queries from the address bar when go button is pressed."""
         search_input = self.search_input.text().strip()
         if not search_input:
             return
 
         if self.is_valid_url(search_input):
-            # Add a new node for the new URL without connecting it
-            self.graph.add_node(search_input)  # Add the new node for the URL
             self.browser.setUrl(QUrl(search_input))
         elif search_input.startswith("www."):
-            self.graph.add_node(f"https://{search_input}")  # Add the node
             self.browser.setUrl(QUrl(f"https://{search_input}"))
         else:
             search_url = f"https://www.google.com/search?q={search_input}"
-            self.graph.add_node(search_url)  # Add the node for search URL
             self.browser.setUrl(QUrl(search_url))
         
         self.print_graph()
@@ -146,6 +147,27 @@ class BrowserWindow(QMainWindow):
         except requests.RequestException as e:
             self.reader_view.setText(f"Error loading page: {e}")
 
+    def get_title_from_url(self, url):
+        page = QWebEnginePage(self)
+        page.load(QUrl(url))
+
+        # Event loop to wait for async JavaScript execution
+        loop = QEventLoop()
+        title_container = {"title": None}  # Mutable container to capture the title
+
+        def handle_load_finished():
+            page.runJavaScript("document.title", lambda title: handle_title_result(title))
+
+        def handle_title_result(title):
+            title_container["title"] = title
+            loop.quit()  # Exit the event loop after getting the title
+
+        page.loadFinished.connect(handle_load_finished)
+
+        loop.exec_()  # Block here until loop.quit() is called
+
+        return title_container["title"]
+
     def toggle_history_view(self):
         """Toggle between showing the history list and the web browser."""
         if self.history_list.isVisible():
@@ -171,7 +193,10 @@ class BrowserWindow(QMainWindow):
         if success:
             # Only add an edge if navigating through a hyperlink
             if self.previous_url and self.current_url != self.previous_url:
-                self.graph.add_edge(self.previous_url, self.current_url)  # Add edge between current and previous URLs
+                previous = self.get_title_from_url(self.previous_url)
+                current = self.get_title_from_url(self.current_url)
+                if previous != current:
+                    self.graph.add_edge(previous.strip(), current.strip())
                 self.print_graph()
 
     def print_graph(self):
@@ -182,15 +207,21 @@ class BrowserWindow(QMainWindow):
         for edge in self.graph.edges:
             print(f"Edge: {edge}")
         
-        # Use a layout to get positions for the nodes
-        pos = nx.spring_layout(self.graph)  # This generates node positions automatically
-
-        # Customize node appearance
-        nx.draw(self.graph, pos, with_labels=True, node_size=500, node_color="skyblue", node_shape="o", alpha=0.7)
-
+        # Use a fixed layout to get positions for the nodes
+        pos = nx.spring_layout(self.graph, seed=42)  # Set a fixed seed for reproducibility
+        
+        # Clear the plot first
+        plt.clf()
+        
         # Customize edge appearance
         nx.draw_networkx_edges(self.graph, pos, edge_color="gray", width=2)
-
+        
+        # Customize node appearance, but disable labels in the first draw
+        nx.draw(self.graph, pos, with_labels=False, node_size=500, node_color="skyblue", alpha=0.7)
+        
+        # Draw the labels separately to avoid double-rendering
+        nx.draw_networkx_labels(self.graph, pos, font_size=10)
+        
         # Display the plot
         plt.show()
 
