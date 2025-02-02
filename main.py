@@ -13,6 +13,9 @@ from PyQt5.QtWebEngineWidgets import QWebEngineView
 from PyQt5.QtWebEngineWidgets import QWebEnginePage
 import networkx as nx
 import matplotlib.pyplot as plt
+import pyqtgraph as pg
+from pyqtgraph.Qt import QtGui
+
 
 class BrowserWindow(QMainWindow):
     def __init__(self):
@@ -34,7 +37,6 @@ class BrowserWindow(QMainWindow):
         self.reader_view.hide()
 
         self.history_list = QListWidget()
-        self.history_list.itemClicked.connect(self.load_from_history)
 
         # Main layout
         self.layout = QVBoxLayout()
@@ -169,24 +171,62 @@ class BrowserWindow(QMainWindow):
         return title_container["title"]
 
     def toggle_history_view(self):
-        """Toggle between showing the history list and the web browser."""
-        if self.history_list.isVisible():
-            self.layout.removeWidget(self.history_list)
-            self.history_list.hide()
+        """Toggle between showing the history list and the interactive network graph."""
+        if hasattr(self, "graph_view") and self.graph_view.isVisible():
+            self.layout.removeWidget(self.graph_view)
+            self.graph_view.hide()
             self.browser.show()
             if self.reader_mode:
                 self.reader_mode_on()
         else:
-            self.layout.addWidget(self.history_list)
-            self.history_list.show()
-            self.browser.hide()
-            self.reader_view.hide()
+            self.display_interactive_graph()
+            
+    def display_interactive_graph(self):
+        """Display an interactive graph using PyQtGraph where nodes are clickable."""
+        if not hasattr(self, "graph_view"):
+            self.graph_view = pg.GraphicsLayoutWidget()
+            self.graph_view.setWindowTitle("Interactive Graph")
 
-    def load_from_history(self, item):
-        """Load the URL selected from the history list."""
-        url = item.text()
-        self.browser.setUrl(QUrl(url))
-        self.toggle_history_view()
+        self.graph_view.clear()
+
+        # Create a plot item
+        plot_item = self.graph_view.addPlot()
+        plot_item.setAspectLocked(True)
+
+        # Get positions for nodes using spring layout
+        pos = nx.spring_layout(self.graph, seed=42)
+
+        # Convert positions to numpy arrays
+        node_positions = {node: (pos[node][0], pos[node][1]) for node in self.graph.nodes}
+        x_data, y_data = zip(*node_positions.values())
+
+        # Create scatter plot
+        scatter = pg.ScatterPlotItem(x_data, y_data, size=15, brush=pg.mkBrush("blue"))
+        plot_item.addItem(scatter)
+
+        # Create a mapping of node positions to URLs
+        node_mapping = {tuple(pos): node for node, pos in node_positions.items()}
+
+        def on_node_clicked(plot, points):
+            """Handle clicks on graph nodes."""
+            for p in points:
+                clicked_pos = (p.pos().x(), p.pos().y())
+                node_name = node_mapping.get(clicked_pos, None)
+
+                if node_name:
+                    # Convert node name back to a URL and navigate
+                    for url, title in self.graph.nodes.items():
+                        if title == node_name:
+                            self.browser.setUrl(QUrl(url))
+                            self.toggle_history_view()
+                            return
+
+        scatter.sigClicked.connect(on_node_clicked)
+
+        self.layout.addWidget(self.graph_view)
+        self.graph_view.show()
+        self.browser.hide()
+        self.reader_view.hide()
 
     def on_load_finished(self, success):
         """Handle actions after a page has finished loading."""
