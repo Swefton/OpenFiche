@@ -7,13 +7,15 @@ with open("rev_keywords_cnn.json", "r") as f:
 with open("page_rank_scores_cnn.json", "r") as f:
     scores = json.load(f)
     
-q = "kamal harri bide presiden"
-words = [t.lower() for t in (re.sub('[^a-zA-Z]+', ' ', q)).split()]
+q = "kamala harris biden president"
+words = [t.lower()[:len(t) - 1] for t in (re.sub('[^a-zA-Z]+', ' ', q)).split()]
+
+#print(words)
 
 poss = {}
 for w in words:
     if w not in data: continue
-    print(w)
+    #print(w)
     li = data[w]
 
     for l in li:
