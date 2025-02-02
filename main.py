@@ -5,11 +5,12 @@ from urllib.parse import urlparse
 from PyQt5.QtCore import Qt, QUrl
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QWidget,
-    QLineEdit, QPushButton, QHBoxLayout, QTextBrowser,
+    QLineEdit, QPushButton, QHBoxLayout,
     QListWidget, QListWidgetItem
 )
 from PyQt5.QtWebEngineWidgets import QWebEngineView
-
+import networkx as nx 
+import matplotlib.pyplot as plt
 
 class BrowserWindow(QMainWindow):
     def __init__(self):
@@ -19,11 +20,12 @@ class BrowserWindow(QMainWindow):
         self.setGeometry(100, 100, 900, 700)
 
         self.reader_mode = False
-        self.history = []  # Store visited links
+        self.graph = nx.DiGraph()
+        self.current_url = "https://www.reada.wiki/"
+        self.previous_url = None
 
         self.browser = QWebEngineView()
-        self.browser.setUrl(QUrl("https://www.reada.wiki/"))
-        self.current_url = "https://www.reada.wiki/"
+        self.browser.setUrl(QUrl(self.current_url))
         self.reader_view = QWebEngineView()
         self.reader_view.hide()
 
@@ -34,7 +36,6 @@ class BrowserWindow(QMainWindow):
         self.layout = QVBoxLayout()
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.layout.setSpacing(0)
-
 
         # Search bar and buttons
         self.search_input = QLineEdit(self)
@@ -55,8 +56,6 @@ class BrowserWindow(QMainWindow):
         search_layout.addWidget(self.search_button)
         search_layout.addWidget(self.reader_mode_button)
         search_layout.addWidget(self.history_button)
-        
-        
 
         self.layout.addLayout(search_layout)
         self.layout.addWidget(self.browser)
@@ -68,27 +67,24 @@ class BrowserWindow(QMainWindow):
         self.setCentralWidget(self.central_widget)
 
         self.browser.urlChanged.connect(self.update_current_url)
-        
-        # Debugging lines
-        # self.browser.setStyleSheet("border: 2px solid red;")
-        # self.reader_view.setStyleSheet("border: 2px solid blue;")
-        # self.history_list.setStyleSheet("border: 2px solid green;")
-        # self.central_widget.setStyleSheet("border: 2px solid yellow;")
 
     def is_valid_url(self, input_text):
         """Check if the input is a valid URL."""
         parsed_url = urlparse(input_text)
         return all([parsed_url.scheme, parsed_url.netloc])
-    
+
     def update_current_url(self, url: QUrl):
         """Update the URL in the search bar when the page changes."""
+        self.previous_url = self.current_url  # Store the previous URL
         self.current_url = url.toString()
-        self.search_input.setText(self.current_url)  # Update URL bar
-        # Optionally, add to history if it's a new URL
-        if self.current_url and (not self.history or self.current_url != self.history[-1]):
-            self.history.append(self.current_url)
-            self.add_to_history_list(self.current_url)
+        self.search_input.setText(self.current_url)
 
+        # Add the current page to the graph if it's a valid navigation
+        if self.previous_url:
+            self.graph.add_edge(self.previous_url, self.current_url)
+
+        # Print the current state of the graph for debugging
+        self.print_graph()
 
     def perform_search(self):
         search_input = self.search_input.text().strip()
@@ -103,26 +99,10 @@ class BrowserWindow(QMainWindow):
             search_url = f"https://www.google.com/search?q={search_input}"
             self.browser.setUrl(QUrl(search_url))
 
-    def update_current_url(self, url: QUrl):
-        self.current_url = url.toString()
-
-        # Add to history if it's a new URL
-        if self.current_url and (not self.history or self.current_url != self.history[-1]):
-            self.history.append(self.current_url)
-            self.add_to_history_list(self.current_url)
-
     def add_to_history_list(self, url):
         """Add a URL to the QListWidget for display."""
         item = QListWidgetItem(url)
         self.history_list.addItem(item)
-
-    def reader_mode_on(self):
-        self.reader_mode = True
-
-        if self.current_url:
-            self.fetch_and_display_content(self.current_url)
-            self.browser.hide()
-            self.reader_view.show()
 
     def toggle_reader_mode(self):
         self.reader_mode = not self.reader_mode
@@ -144,22 +124,16 @@ class BrowserWindow(QMainWindow):
             soup = BeautifulSoup(response.content, 'html.parser')
 
             content = ""
-            
-            # Filter out unwanted elements like advertisements, sidebars, or sponsor messages
             for ad_tag in soup.find_all(class_=['ad-wrap', 'sponsor', 'bucket', 'secondary']):
-                ad_tag.decompose()  # Removes the unwanted tag from the tree
+                ad_tag.decompose()
 
-            # Extract desired tags: h1, h2, h3, p (headings and paragraphs)
             for tag in soup.find_all(['h1', 'h2', 'h3', 'p']):
-                # Skip unwanted elements by excluding specific text or classes
                 if tag.name in ['h1', 'h2', 'h3']:
                     content += f"<h2 style='color:#FFFFFF;'>{tag.get_text()}</h2>"
                 elif tag.name == 'p':
-                    # Ensure we are getting the right paragraphs (skip non-content or small text)
                     if not tag.find_parent(class_='footer') and not tag.find_parent(class_='ad-wrap'):
                         content += f"<p style='color:#DDDDDD; line-height:1.6;'>{tag.get_text()}</p>"
 
-            # Final HTML structure with dark mode styling
             dark_mode_html = f"""
             <html>
                 <body style='font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; background-color: #333333;'>
@@ -169,23 +143,18 @@ class BrowserWindow(QMainWindow):
                 </body>
             </html>
             """
-            
-            # Display in the QTextBrowser
             self.reader_view.setHtml(dark_mode_html)
 
         except requests.RequestException as e:
             self.reader_view.setText(f"Error loading page: {e}")
 
-
     def toggle_history_view(self):
-        """Dynamically add or remove the history panel."""
         if self.history_list.isVisible():
             self.layout.removeWidget(self.history_list)
             self.history_list.hide()
             self.browser.show()
             if self.reader_mode:
                 self.reader_mode_on()
-            
         else:
             self.layout.addWidget(self.history_list)
             self.history_list.show()
@@ -193,10 +162,29 @@ class BrowserWindow(QMainWindow):
             self.reader_view.hide()
 
     def load_from_history(self, item):
-        """Load a URL from the history when clicked."""
         url = item.text()
         self.browser.setUrl(QUrl(url))
-        self.toggle_history_view()  # Hide history after selecting
+        self.toggle_history_view()
+
+    def print_graph(self):
+        """Print the current state of the graph to the terminal."""
+        print("Current Graph:")
+        for node in self.graph.nodes:
+            print(f"Node: {node}")
+        for edge in self.graph.edges:
+            print(f"Edge: {edge}")
+        
+        # Use a layout to get positions for the nodes
+        pos = nx.spring_layout(self.graph)  # This generates node positions automatically
+
+        # Customize node appearance
+        nx.draw(self.graph, pos, with_labels=True, node_size=500, node_color="skyblue", node_shape="o", alpha=0.7)
+
+        # Customize edge appearance
+        nx.draw_networkx_edges(self.graph, pos, edge_color="gray", width=2)
+
+        # Display the plot
+        plt.show()
 
 
 if __name__ == "__main__":
