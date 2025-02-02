@@ -29,7 +29,7 @@ with open("page_rank_scores_wiki.json", "r") as f:
 @app.route("/search", methods=["GET"])
 def search():
     q = request.args.get("q", "")
-    words = [t.lower()[:len(t) - 1] for t in (re.sub('[^a-zA-Z]+', ' ', q)).split()] + (re.sub('[^a-zA-Z]+', ' ', q)).split()
+    words = [t.lower()[:len(t) - 1] for t in (re.sub('[^a-zA-Z]+', ' ', q)).split()] + [t.lower() for t in (re.sub('[^a-zA-Z]+', ' ', q)).split()]
     poss = {}
     for w in words:
         if w not in data: 
