@@ -2,47 +2,48 @@ import sys
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
-from PyQt5.QtCore import Qt, QUrl
-from PyQt5.QtCore import QEventLoop
+from PyQt5.QtCore import Qt, QUrl, QEventLoop
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QWidget,
     QLineEdit, QPushButton, QHBoxLayout,
-    QListWidget
+    QListWidget, QTabWidget, QToolBar, QAction
 )
-from PyQt5.QtWebEngineWidgets import QWebEngineView
-from PyQt5.QtWebEngineWidgets import QWebEnginePage
+from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEnginePage
 import networkx as nx
 import matplotlib.pyplot as plt
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui
 
 
-class BrowserWindow(QMainWindow):
-    def __init__(self):
+class BrowserTab(QWidget):
+    """
+    A single browser tab that maintains its own reader mode,
+    browsing history, and graph data.
+    """
+    def __init__(self, url="https://www.reada.wiki/"):
         super().__init__()
-
-        self.setWindowTitle("OpenFiche Net")
-        self.setGeometry(100, 100, 900, 700)
-
+        
         self.reader_mode = False
         self.graph = nx.DiGraph()
-        self.current_node = None  # Keeps track of the active node
-        self.current_url = "https://www.reada.wiki/"
+        self.current_node = None
+        self.current_url = url
         self.previous_url = None
         self.current_title = "Home"
         self.previous_title = ""
 
+        # Main layout for this tab
+        self.layout = QVBoxLayout(self)
+        self.layout.setContentsMargins(0, 0, 0, 0)
+        self.layout.setSpacing(0)
+        
+        # Create widgets
         self.browser = QWebEngineView()
         self.browser.setUrl(QUrl(self.current_url))
+        
         self.reader_view = QWebEngineView()
         self.reader_view.hide()
 
         self.history_list = QListWidget()
-
-        # Main layout
-        self.layout = QVBoxLayout()
-        self.layout.setContentsMargins(0, 0, 0, 0)
-        self.layout.setSpacing(0)
 
         # Search bar and buttons
         self.search_input = QLineEdit(self)
@@ -68,11 +69,7 @@ class BrowserWindow(QMainWindow):
         self.layout.addWidget(self.browser)
         self.layout.addWidget(self.reader_view)
 
-        # Central widget
-        self.central_widget = QWidget(self)
-        self.central_widget.setLayout(self.layout)
-        self.setCentralWidget(self.central_widget)
-
+        # Connect signals
         self.browser.urlChanged.connect(self.update_current_url)
         self.browser.loadFinished.connect(self.on_load_finished)
 
@@ -83,13 +80,14 @@ class BrowserWindow(QMainWindow):
 
     def update_current_url(self, url: QUrl):
         """Update the URL in the search bar when the page changes."""
-        self.previous_url = self.current_url  # Store the previous URL
+        self.previous_url = self.current_url
         self.current_url = url.toString()
-        self.current_title = "Current title" # TODO CHANGE
+        # Optionally update self.current_title if needed:
+        # self.current_title = "Current title"  # You could extract it here
         self.search_input.setText(self.current_url)
 
     def perform_search(self):
-        """Handle search queries from the address bar when go button is pressed."""
+        """Handle search queries from the address bar."""
         search_input = self.search_input.text().strip()
         if not search_input:
             return
@@ -101,7 +99,7 @@ class BrowserWindow(QMainWindow):
         else:
             search_url = f"https://www.google.com/search?q={search_input}"
             self.browser.setUrl(QUrl(search_url))
-        
+
         self.print_graph()
 
     def toggle_reader_mode(self):
@@ -126,9 +124,11 @@ class BrowserWindow(QMainWindow):
             soup = BeautifulSoup(response.content, 'html.parser')
 
             content = ""
+            # Remove ads or sponsor sections
             for ad_tag in soup.find_all(class_=['ad-wrap', 'sponsor', 'bucket', 'secondary']):
                 ad_tag.decompose()
 
+            # Grab headings and paragraphs
             for tag in soup.find_all(['h1', 'h2', 'h3', 'p']):
                 if tag.name in ['h1', 'h2', 'h3']:
                     content += f"<h2 style='color:#FFFFFF;'>{tag.get_text()}</h2>"
@@ -148,40 +148,39 @@ class BrowserWindow(QMainWindow):
             self.reader_view.setHtml(dark_mode_html)
 
         except requests.RequestException as e:
-            self.reader_view.setText(f"Error loading page: {e}")
+            self.reader_view.setHtml(f"<h3 style='color: red;'>Error loading page: {e}</h3>")
 
     def get_title_from_url(self, url):
         page = QWebEnginePage(self)
         page.load(QUrl(url))
 
-        # Event loop to wait for async JavaScript execution
         loop = QEventLoop()
-        title_container = {"title": None}  # Mutable container to capture the title
+        title_container = {"title": None}
 
         def handle_load_finished():
             page.runJavaScript("document.title", lambda title: handle_title_result(title))
 
         def handle_title_result(title):
             title_container["title"] = title
-            loop.quit()  # Exit the event loop after getting the title
+            loop.quit()
 
         page.loadFinished.connect(handle_load_finished)
-
-        loop.exec_()  # Block here until loop.quit() is called
+        loop.exec_()
 
         return title_container["title"]
 
     def toggle_history_view(self):
-        """Toggle between showing the history list and the interactive network graph."""
+        """Toggle between showing the history graph and the browser/reader."""
         if hasattr(self, "graph_view") and self.graph_view.isVisible():
             self.layout.removeWidget(self.graph_view)
             self.graph_view.hide()
-            self.browser.show()
             if self.reader_mode:
-                self.reader_mode_on()
+                self.reader_view.show()
+            else:
+                self.browser.show()
         else:
             self.display_interactive_graph()
-            
+
     def display_interactive_graph(self):
         """Display an interactive NetworkX graph using PyQtGraph."""
         if not hasattr(self, "graph_view"):
@@ -190,62 +189,46 @@ class BrowserWindow(QMainWindow):
 
         self.graph_view.clear()
 
-        # Create a plot item
         plot_item = self.graph_view.addPlot()
         plot_item.setAspectLocked(True)
 
-        # Get better layout for nodes
-        pos = nx.spring_layout(self.graph, seed=42, k=0.8, scale=10)  # Spread nodes out
-
-        # Convert positions to numpy arrays
+        pos = nx.spring_layout(self.graph, seed=42, k=0.8, scale=10)
         node_positions = {node: (pos[node][0], pos[node][1]) for node in self.graph.nodes}
-        x_data, y_data = zip(*node_positions.values())
+        x_data, y_data = zip(*node_positions.values()) if node_positions else ([], [])
 
-        # Scatter plot for nodes
         scatter = pg.ScatterPlotItem(x_data, y_data, size=20, brush=pg.mkBrush("blue"))
         plot_item.addItem(scatter)
 
-        # Draw edges as arrows
+        # Draw edges
         for start, end in self.graph.edges:
             x_start, y_start = node_positions[start]
             x_end, y_end = node_positions[end]
-
-            # Edge line
             line = pg.PlotDataItem(x=[x_start, x_end], y=[y_start, y_end], pen=pg.mkPen("gray", width=2))
             plot_item.addItem(line)
 
-            # Arrow head (manually placed)
-            arrow_size = 0.3
+            # Arrow
             arrow = pg.ArrowItem(pos=(x_end, y_end), angle=0, headLen=10, brush=pg.mkBrush("red"))
             plot_item.addItem(arrow)
 
-        # Show labels (page titles)
+        # Draw labels
         for node, (x, y) in node_positions.items():
             text = pg.TextItem(text=node, anchor=(0.5, 0.5), color="white")
             text.setPos(x, y)
             plot_item.addItem(text)
 
-        # Clickable nodes
         node_mapping = {tuple(pos): node for node, pos in node_positions.items()}
 
         def on_node_clicked(plot, points):
-            """Handle clicks on graph nodes to navigate and track the selected node."""
             for p in points:
                 clicked_pos = (p.pos().x(), p.pos().y())
                 node_name = node_mapping.get(clicked_pos, None)
-
                 if node_name:
-                    # Update current active node
-                    self.current_node = node_name  
-                    
-                    # Get URL from node attributes and navigate
+                    self.current_node = node_name
                     node_data = self.graph.nodes.get(node_name, {})
                     url = node_data.get("url")
-
                     if url:
                         self.browser.setUrl(QUrl(url))
                         self.toggle_history_view()
-
 
         scatter.sigClicked.connect(on_node_clicked)
 
@@ -254,55 +237,99 @@ class BrowserWindow(QMainWindow):
         self.browser.hide()
         self.reader_view.hide()
 
-
     def on_load_finished(self, success):
-        """Handle actions after a page has finished loading."""
+        """Create and link graph nodes once the page finishes loading."""
         if success:
             current_title = self.get_title_from_url(self.current_url).strip()
-
-            # Add new node
+            # Add new node if not present
             self.graph.add_node(current_title, url=self.current_url)
 
-            # If a previous node was selected, create an edge
+            # If we had a previous node, create an edge
             if self.current_node and self.current_node != current_title:
                 self.graph.add_edge(self.current_node, current_title)
 
-            # Update the current node to the new one
             self.current_node = current_title
-
-            # NOTE for debugging
-            # self.print_graph()
-
+            # (Optional) self.print_graph()
 
     def print_graph(self):
-        """Print the current state of the graph to the terminal."""
+        """Print and plot the current state of the graph to a Matplotlib window."""
         print("Current Graph:")
         for node in self.graph.nodes:
             print(f"Node: {node}")
         for edge in self.graph.edges:
             print(f"Edge: {edge}")
-        
-        # Use a fixed layout to get positions for the nodes
-        pos = nx.spring_layout(self.graph, seed=42)  # Set a fixed seed for reproducibility
-        
-        # Clear the plot first
+
+        pos = nx.spring_layout(self.graph, seed=42)
         plt.clf()
-        
-        # Customize edge appearance
         nx.draw_networkx_edges(self.graph, pos, edge_color="gray", width=2)
-        
-        # Customize node appearance, but disable labels in the first draw
-        nx.draw(self.graph, pos, with_labels=False, node_size=500, node_color="skyblue", alpha=0.7)
-        
-        # Draw the labels separately to avoid double-rendering
+        nx.draw(self.graph, pos, with_labels=False, node_size=500,
+                node_color="skyblue", alpha=0.7)
         nx.draw_networkx_labels(self.graph, pos, font_size=10)
-        
-        # Display the plot
         plt.show()
 
 
-if __name__ == "__main__":
+class MainWindow(QMainWindow):
+    """
+    Main application window holding a QTabWidget
+    to manage multiple BrowserTabs.
+    """
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("OpenFiche Net - Multi Tab")
+        self.setGeometry(100, 100, 1200, 800)
+
+        # Create a central widget and layout
+        central_widget = QWidget()
+        central_layout = QVBoxLayout(central_widget)
+        central_widget.setLayout(central_layout)
+        self.setCentralWidget(central_widget)
+
+        # Create a toolbar for the "New Tab" button
+        toolbar = QToolBar("Tab Controls", self)
+        self.addToolBar(toolbar)
+
+        new_tab_action = QAction("New Tab", self)
+        new_tab_action.triggered.connect(self.create_new_tab)
+        toolbar.addAction(new_tab_action)
+
+        # Create the tab widget
+        self.tab_widget = QTabWidget()
+        self.tab_widget.setTabsClosable(True)
+        self.tab_widget.tabCloseRequested.connect(self.close_tab)
+        central_layout.addWidget(self.tab_widget)
+
+        # Open one default tab
+        self.create_new_tab()
+
+    def create_new_tab(self):
+        """
+        Create a new BrowserTab and add it to the QTabWidget.
+        By default, it loads 'https://www.reada.wiki/'.
+        """
+        new_tab = BrowserTab("https://www.reada.wiki/")
+        index = self.tab_widget.addTab(new_tab, "New Tab")
+        self.tab_widget.setCurrentIndex(index)
+
+        # Optional: Update the tab text when title changes.
+        # If you want dynamic tab titles, connect a signal:
+        # new_tab.browser.titleChanged.connect(
+        #     lambda title: self.tab_widget.setTabText(index, title[:15])
+        # )
+
+    def close_tab(self, index):
+        """Close the requested tab."""
+        tab = self.tab_widget.widget(index)
+        if tab:
+            self.tab_widget.removeTab(index)
+            tab.deleteLater()
+
+
+def main():
     app = QApplication(sys.argv)
-    window = BrowserWindow()
+    window = MainWindow()
     window.show()
     sys.exit(app.exec_())
+
+
+if __name__ == "__main__":
+    main()
