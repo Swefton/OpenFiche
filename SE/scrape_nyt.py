@@ -4,9 +4,11 @@ import networkx as nx
 import requests
 from bs4 import BeautifulSoup
 import json
+import re
 
 # Define allowed domains and language filter
-ALLOWED_DOMAINS = ["en.wikipedia.org"]
+ALLOWED_DOMAINS = ["https://www.cnn.com"]
+pattern = r"^https://www\.cnn\.com/\d{4}/\d{2}/\d{2}/.*$"
 
 # Function to check if a URL belongs to allowed domains
 def is_allowed(url):
@@ -22,15 +24,15 @@ def get_links(url):
         links = set()
         for a_tag in soup.find_all("a", href=True):
             link = a_tag["href"]
-            if link[:5] == "/wiki" and "Special:" not in link and "Wikipedia:" not in link and "Category:" not in link and "Help:" not in link and "File:" not in link and "Portal:" not in link and "Template:" not in link and "Template_talk:" not in link and "Talk:" not in link:
-                links.add("https://en.wikipedia.org/" + link)
+            if re.match(pattern, link):
+                links.add(link)
         return links
     except Exception as e:
         print(f"Error fetching {url}: {e}")
         return set()
 
 # Function to build a web graph with depth control
-def build_web_graph(start_urls, max_depth, save_interval=100):
+def build_web_graph(start_urls, max_depth, save_interval=10):
     graph = nx.DiGraph()
     queue = [(url, 0) for url in start_urls]  # (URL, depth)
     visited = set()
@@ -52,14 +54,15 @@ def build_web_graph(start_urls, max_depth, save_interval=100):
 
         # Save progress every 'save_interval' URLs
         if processed_count % save_interval == 0:
-            os.system("rm webgraph.json")
+            os.system("rm webgraph_cnn.json")
             print(f"Saving progress at {processed_count} URLs processed...")
-            save_graph(graph, "webgraph.json")
+            save_graph(graph, "webgraph_cnn.json")
 
     return graph
 
+
 # Function to save the graph to JSON
-def save_graph(graph, filename="webgraph.json"):
+def save_graph(graph, filename="webgraph_cnn.json"):
     data = {
         "nodes": list(graph.nodes),
         "edges": list(graph.edges)
@@ -69,7 +72,7 @@ def save_graph(graph, filename="webgraph.json"):
 
 # Example usage
 if __name__ == "__main__":
-    start_urls = ["https://en.wikipedia.org/wiki/Web_graph"]
-    web_graph = build_web_graph(start_urls, max_depth=3)
+    start_urls = ["https://www.cnn.com"]
+    web_graph = build_web_graph(start_urls, max_depth=7)
     save_graph(web_graph)
     print("Web graph saved to webgraph.json")
