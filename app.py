@@ -46,7 +46,7 @@ def search():
     results = [(poss[l] * scores[l], l) for l in poss]
     results.sort(reverse=True)  # Sort descending
 
-    return jsonify(results[:10])  # Return top 10 results
+    return jsonify(results)  # Return top 10 results
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080, debug=True)
