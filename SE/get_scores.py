@@ -2,10 +2,10 @@ import json
 import networkx as nx
 import matplotlib.pyplot as plt
 
-with open("webgraph.json", "r") as f:
+with open("webgraph_npr.json", "r") as f:
     data = json.load(f)
     
-def save_to_json(data, filename="page_rank_scores.json"):
+def save_to_json(data, filename="page_rank_scores_npr.json"):
     try:
         with open(filename, "r") as file:
             existing_data = json.load(file)

@@ -61,7 +61,7 @@ def generate_variations(keywords):
             variations.add(word[:len(word) - 1])  # Shortened version
     return list(variations)
 
-def save_to_json(data, filename="keywords.json"):
+def save_to_json(data, filename="keywords_wiki.json"):
     """Save keyword variations along with URLs to a JSON file."""
     try:
         with open(filename, "r") as file:
@@ -78,18 +78,23 @@ def save_to_json(data, filename="keywords.json"):
 
 # Example Usage
 if __name__ == "__main__":
-    with open("webgraph.json", "r") as f:
+    with open("webgraph_wiki_4400.json", "r") as f:
         data = json.load(f)
     
     ma = {}
+    idx = 0
     for url in data["nodes"]:
+        if idx % 100 == 0: 
+            print("Progress:", idx, len(data["nodes"]))
+            save_to_json(ma)
+        idx += 1
         try:
             html_content = fetch_html(url)
 
             keywords = extract_keywords(html_content)
             keyword_variations = generate_variations(keywords)
         
-            print(url, *keywords)
+            # print(url, *keywords)
             ma[url] = keyword_variations
         except:
             continue

@@ -1,6 +1,6 @@
 import json
 
-def save_to_json(data, filename="rev_keywords.json"):
+def save_to_json(data, filename="rev_keywords_npr.json"):
     try:
         with open(filename, "r") as file:
             existing_data = json.load(file)
@@ -15,7 +15,7 @@ def save_to_json(data, filename="rev_keywords.json"):
         json.dump(existing_data, file, indent=4)
 
 
-with open("keywords.json", "r") as f:
+with open("keywords_npr.json", "r") as f:
     data = json.load(f)
 
 ma = {}
