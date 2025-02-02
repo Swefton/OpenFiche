@@ -132,7 +132,8 @@ class BrowserTab(QWidget):
             search_url = f"https://www.google.com/search?q={search_input}"
             self.browser.setUrl(QUrl(search_url))
 
-        self.print_graph()
+        # NOTE: For debugging
+        # self.print_graph()
 
     def toggle_reader_mode(self):
         self.reader_mode = not self.reader_mode
