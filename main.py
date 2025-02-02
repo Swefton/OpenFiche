@@ -2,12 +2,14 @@ import sys
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
+
 from PyQt5.QtCore import Qt, QUrl, QEventLoop
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QWidget,
     QLineEdit, QPushButton, QHBoxLayout,
-    QListWidget, QTabWidget, QToolBar, QAction
+    QListWidget, QTabWidget, QToolBar, QAction, QShortcut
 )
+from PyQt5.QtGui import QKeySequence
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEnginePage
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -15,14 +17,42 @@ import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui
 
 
+class CustomWebEnginePage(QWebEnginePage):
+    """
+    Custom QWebEnginePage that intercepts 'createWindow' calls.
+    Typically triggered by Ctrl+click, target=_blank, JavaScript window.open(), etc.
+    We'll call back into the parent to create new tabs.
+    """
+    def __init__(self, parent_tab, create_tab_callback):
+        super().__init__(parent_tab)
+        self.parent_tab = parent_tab
+        self.create_tab_callback = create_tab_callback
+
+    def createWindow(self, window_type):
+    # Accept any window request as a new tab
+        if window_type in (
+            QWebEnginePage.WebBrowserTab,
+            QWebEnginePage.WebBrowserBackgroundTab,
+            QWebEnginePage.WebBrowserWindow,
+            QWebEnginePage.WebDialog,
+            3
+        ):
+            new_tab = BrowserTab(create_tab_callback=self.create_blank_tab,
+                     url="https://www.reada.wiki/")
+
+            return new_tab.browser.page()
+
+        return super().createWindow(window_type)
+
+
 class BrowserTab(QWidget):
     """
-    A single browser tab that maintains its own reader mode,
-    browsing history, and graph data.
+    A single browser tab with its own reader mode, graph data, etc.
     """
-    def __init__(self, url="https://www.reada.wiki/"):
+    def __init__(self, create_tab_callback, url="about:blank"):
         super().__init__()
         
+        self.create_tab_callback = create_tab_callback  # function to create new tabs
         self.reader_mode = False
         self.graph = nx.DiGraph()
         self.current_node = None
@@ -38,6 +68,10 @@ class BrowserTab(QWidget):
         
         # Create widgets
         self.browser = QWebEngineView()
+        # Use a custom page that knows how to open new tabs
+        self.custom_page = CustomWebEnginePage(self, self.create_tab_callback)
+        self.browser.setPage(self.custom_page)
+
         self.browser.setUrl(QUrl(self.current_url))
         
         self.reader_view = QWebEngineView()
@@ -48,6 +82,9 @@ class BrowserTab(QWidget):
         # Search bar and buttons
         self.search_input = QLineEdit(self)
         self.search_input.setPlaceholderText("Enter URL or search term...")
+
+        # Pressing ENTER => perform_search()
+        self.search_input.returnPressed.connect(self.perform_search)
 
         self.search_button = QPushButton("Go", self)
         self.search_button.clicked.connect(self.perform_search)
@@ -74,20 +111,15 @@ class BrowserTab(QWidget):
         self.browser.loadFinished.connect(self.on_load_finished)
 
     def is_valid_url(self, input_text):
-        """Check if the input is a valid URL."""
         parsed_url = urlparse(input_text)
         return all([parsed_url.scheme, parsed_url.netloc])
 
     def update_current_url(self, url: QUrl):
-        """Update the URL in the search bar when the page changes."""
         self.previous_url = self.current_url
         self.current_url = url.toString()
-        # Optionally update self.current_title if needed:
-        # self.current_title = "Current title"  # You could extract it here
         self.search_input.setText(self.current_url)
 
     def perform_search(self):
-        """Handle search queries from the address bar."""
         search_input = self.search_input.text().strip()
         if not search_input:
             return
@@ -103,9 +135,7 @@ class BrowserTab(QWidget):
         self.print_graph()
 
     def toggle_reader_mode(self):
-        """Toggle between reader mode and regular browsing mode."""
         self.reader_mode = not self.reader_mode
-
         if self.reader_mode:
             if self.current_url:
                 self.fetch_and_display_content(self.current_url)
@@ -116,19 +146,16 @@ class BrowserTab(QWidget):
             self.browser.show()
 
     def fetch_and_display_content(self, url):
-        """Fetch the content and display it in a customized reader view."""
         try:
             response = requests.get(url, timeout=10)
             response.raise_for_status()
 
             soup = BeautifulSoup(response.content, 'html.parser')
-
             content = ""
-            # Remove ads or sponsor sections
+
             for ad_tag in soup.find_all(class_=['ad-wrap', 'sponsor', 'bucket', 'secondary']):
                 ad_tag.decompose()
 
-            # Grab headings and paragraphs
             for tag in soup.find_all(['h1', 'h2', 'h3', 'p']):
                 if tag.name in ['h1', 'h2', 'h3']:
                     content += f"<h2 style='color:#FFFFFF;'>{tag.get_text()}</h2>"
@@ -170,7 +197,6 @@ class BrowserTab(QWidget):
         return title_container["title"]
 
     def toggle_history_view(self):
-        """Toggle between showing the history graph and the browser/reader."""
         if hasattr(self, "graph_view") and self.graph_view.isVisible():
             self.layout.removeWidget(self.graph_view)
             self.graph_view.hide()
@@ -182,7 +208,6 @@ class BrowserTab(QWidget):
             self.display_interactive_graph()
 
     def display_interactive_graph(self):
-        """Display an interactive NetworkX graph using PyQtGraph."""
         if not hasattr(self, "graph_view"):
             self.graph_view = pg.GraphicsLayoutWidget()
             self.graph_view.setWindowTitle("Interactive Graph")
@@ -192,6 +217,9 @@ class BrowserTab(QWidget):
         plot_item = self.graph_view.addPlot()
         plot_item.setAspectLocked(True)
 
+        if len(self.graph.nodes) == 0:
+            return
+
         pos = nx.spring_layout(self.graph, seed=42, k=0.8, scale=10)
         node_positions = {node: (pos[node][0], pos[node][1]) for node in self.graph.nodes}
         x_data, y_data = zip(*node_positions.values()) if node_positions else ([], [])
@@ -199,18 +227,14 @@ class BrowserTab(QWidget):
         scatter = pg.ScatterPlotItem(x_data, y_data, size=20, brush=pg.mkBrush("blue"))
         plot_item.addItem(scatter)
 
-        # Draw edges
         for start, end in self.graph.edges:
             x_start, y_start = node_positions[start]
             x_end, y_end = node_positions[end]
             line = pg.PlotDataItem(x=[x_start, x_end], y=[y_start, y_end], pen=pg.mkPen("gray", width=2))
             plot_item.addItem(line)
-
-            # Arrow
             arrow = pg.ArrowItem(pos=(x_end, y_end), angle=0, headLen=10, brush=pg.mkBrush("red"))
             plot_item.addItem(arrow)
 
-        # Draw labels
         for node, (x, y) in node_positions.items():
             text = pg.TextItem(text=node, anchor=(0.5, 0.5), color="white")
             text.setPos(x, y)
@@ -238,26 +262,25 @@ class BrowserTab(QWidget):
         self.reader_view.hide()
 
     def on_load_finished(self, success):
-        """Create and link graph nodes once the page finishes loading."""
         if success:
             current_title = self.get_title_from_url(self.current_url).strip()
-            # Add new node if not present
             self.graph.add_node(current_title, url=self.current_url)
 
-            # If we had a previous node, create an edge
             if self.current_node and self.current_node != current_title:
                 self.graph.add_edge(self.current_node, current_title)
 
             self.current_node = current_title
-            # (Optional) self.print_graph()
 
     def print_graph(self):
-        """Print and plot the current state of the graph to a Matplotlib window."""
         print("Current Graph:")
         for node in self.graph.nodes:
             print(f"Node: {node}")
         for edge in self.graph.edges:
             print(f"Edge: {edge}")
+
+        if not self.graph.nodes:
+            print("No nodes in graph yet.")
+            return
 
         pos = nx.spring_layout(self.graph, seed=42)
         plt.clf()
@@ -278,50 +301,61 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("OpenFiche Net - Multi Tab")
         self.setGeometry(100, 100, 1200, 800)
 
-        # Create a central widget and layout
         central_widget = QWidget()
         central_layout = QVBoxLayout(central_widget)
         central_widget.setLayout(central_layout)
         self.setCentralWidget(central_widget)
 
-        # Create a toolbar for the "New Tab" button
         toolbar = QToolBar("Tab Controls", self)
         self.addToolBar(toolbar)
 
         new_tab_action = QAction("New Tab", self)
-        new_tab_action.triggered.connect(self.create_new_tab)
+        new_tab_action.triggered.connect(self.create_blank_tab)
         toolbar.addAction(new_tab_action)
 
-        # Create the tab widget
         self.tab_widget = QTabWidget()
         self.tab_widget.setTabsClosable(True)
         self.tab_widget.tabCloseRequested.connect(self.close_tab)
         central_layout.addWidget(self.tab_widget)
 
+        # Keyboard shortcut: Ctrl + T => new blank tab
+        self.shortcut_new_tab = QShortcut(QKeySequence("Ctrl+T"), self)
+        self.shortcut_new_tab.activated.connect(self.create_blank_tab)
+
+        # Keyboard shortcut: Ctrl + W => close current tab
+        self.shortcut_close_tab = QShortcut(QKeySequence("Ctrl+W"), self)
+        self.shortcut_close_tab.activated.connect(self.close_current_tab)
+
         # Open one default tab
         self.create_new_tab()
 
     def create_new_tab(self):
-        """
-        Create a new BrowserTab and add it to the QTabWidget.
-        By default, it loads 'https://www.reada.wiki/'.
-        """
-        new_tab = BrowserTab("https://www.reada.wiki/")
+        new_tab = BrowserTab(
+            create_tab_callback=self.create_blank_tab,
+            url="https://www.reada.wiki/"
+        )
         index = self.tab_widget.addTab(new_tab, "New Tab")
         self.tab_widget.setCurrentIndex(index)
+        return new_tab
 
-        # Optional: Update the tab text when title changes.
-        # If you want dynamic tab titles, connect a signal:
-        # new_tab.browser.titleChanged.connect(
-        #     lambda title: self.tab_widget.setTabText(index, title[:15])
-        # )
+    def create_blank_tab(self):
+        new_tab = BrowserTab(create_tab_callback=self.create_blank_tab,
+                     url="https://www.reada.wiki/")
+        index = self.tab_widget.addTab(new_tab, "Blank Tab")
+        self.tab_widget.setCurrentIndex(index)
+        return new_tab
 
     def close_tab(self, index):
-        """Close the requested tab."""
         tab = self.tab_widget.widget(index)
         if tab:
             self.tab_widget.removeTab(index)
             tab.deleteLater()
+
+    def close_current_tab(self):
+        """Close the currently active tab (Ctrl+W)."""
+        current_index = self.tab_widget.currentIndex()
+        if current_index >= 0:
+            self.close_tab(current_index)
 
 
 def main():
