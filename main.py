@@ -182,7 +182,7 @@ class BrowserWindow(QMainWindow):
             self.display_interactive_graph()
             
     def display_interactive_graph(self):
-        """Display an interactive graph using PyQtGraph where nodes are clickable."""
+        """Display an interactive NetworkX graph using PyQtGraph."""
         if not hasattr(self, "graph_view"):
             self.graph_view = pg.GraphicsLayoutWidget()
             self.graph_view.setWindowTitle("Interactive Graph")
@@ -193,33 +193,54 @@ class BrowserWindow(QMainWindow):
         plot_item = self.graph_view.addPlot()
         plot_item.setAspectLocked(True)
 
-        # Get positions for nodes using spring layout
-        pos = nx.spring_layout(self.graph, seed=42)
+        # Get better layout for nodes
+        pos = nx.spring_layout(self.graph, seed=42, k=0.8, scale=10)  # Spread nodes out
 
         # Convert positions to numpy arrays
         node_positions = {node: (pos[node][0], pos[node][1]) for node in self.graph.nodes}
         x_data, y_data = zip(*node_positions.values())
 
-        # Create scatter plot
-        scatter = pg.ScatterPlotItem(x_data, y_data, size=15, brush=pg.mkBrush("blue"))
+        # Scatter plot for nodes
+        scatter = pg.ScatterPlotItem(x_data, y_data, size=20, brush=pg.mkBrush("blue"))
         plot_item.addItem(scatter)
 
-        # Create a mapping of node positions to URLs
+        # Draw edges as arrows
+        for start, end in self.graph.edges:
+            x_start, y_start = node_positions[start]
+            x_end, y_end = node_positions[end]
+
+            # Edge line
+            line = pg.PlotDataItem(x=[x_start, x_end], y=[y_start, y_end], pen=pg.mkPen("gray", width=2))
+            plot_item.addItem(line)
+
+            # Arrow head (manually placed)
+            arrow_size = 0.3
+            arrow = pg.ArrowItem(pos=(x_end, y_end), angle=0, headLen=10, brush=pg.mkBrush("red"))
+            plot_item.addItem(arrow)
+
+        # Show labels (page titles)
+        for node, (x, y) in node_positions.items():
+            text = pg.TextItem(text=node, anchor=(0.5, 0.5), color="white")
+            text.setPos(x, y)
+            plot_item.addItem(text)
+
+        # Clickable nodes
         node_mapping = {tuple(pos): node for node, pos in node_positions.items()}
 
         def on_node_clicked(plot, points):
-            """Handle clicks on graph nodes."""
+            """Handle clicks on graph nodes to navigate to the corresponding URL."""
             for p in points:
                 clicked_pos = (p.pos().x(), p.pos().y())
                 node_name = node_mapping.get(clicked_pos, None)
 
                 if node_name:
-                    # Convert node name back to a URL and navigate
-                    for url, title in self.graph.nodes.items():
-                        if title == node_name:
-                            self.browser.setUrl(QUrl(url))
-                            self.toggle_history_view()
-                            return
+                    # Get URL from node attributes
+                    node_data = self.graph.nodes.get(node_name, {})
+                    url = node_data.get("url")
+
+                    if url:
+                        self.browser.setUrl(QUrl(url))
+                        self.toggle_history_view()
 
         scatter.sigClicked.connect(on_node_clicked)
 
@@ -228,15 +249,22 @@ class BrowserWindow(QMainWindow):
         self.browser.hide()
         self.reader_view.hide()
 
+
     def on_load_finished(self, success):
         """Handle actions after a page has finished loading."""
         if success:
-            # Only add an edge if navigating through a hyperlink
             if self.previous_url and self.current_url != self.previous_url:
-                previous = self.get_title_from_url(self.previous_url)
-                current = self.get_title_from_url(self.current_url)
-                if previous != current:
-                    self.graph.add_edge(previous.strip(), current.strip())
+                previous_title = self.get_title_from_url(self.previous_url).strip()
+                current_title = self.get_title_from_url(self.current_url).strip()
+
+                # Add nodes with URL as an attribute
+                self.graph.add_node(previous_title, url=self.previous_url)
+                self.graph.add_node(current_title, url=self.current_url)
+
+                # Connect nodes with an edge
+                if previous_title != current_title:
+                    self.graph.add_edge(previous_title, current_title)
+
                 self.print_graph()
 
     def print_graph(self):
