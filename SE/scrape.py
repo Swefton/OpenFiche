@@ -5,14 +5,11 @@ import requests
 from bs4 import BeautifulSoup
 import json
 
-# Define allowed domains and language filter
 ALLOWED_DOMAINS = ["en.wikipedia.org"]
 
-# Function to check if a URL belongs to allowed domains
 def is_allowed(url):
     return any(url.startswith(f"https://{domain}") for domain in ALLOWED_DOMAINS)
 
-# Function to fetch and parse links from a webpage
 def get_links(url):
     print(url)
     try:
@@ -29,10 +26,9 @@ def get_links(url):
         print(f"Error fetching {url}: {e}")
         return set()
 
-# Function to build a web graph with depth control
 def build_web_graph(start_urls, max_depth, save_interval=100):
     graph = nx.DiGraph()
-    queue = [(url, 0) for url in start_urls]  # (URL, depth)
+    queue = [(url, 0) for url in start_urls]
     visited = set()
     processed_count = 0
 
@@ -50,7 +46,6 @@ def build_web_graph(start_urls, max_depth, save_interval=100):
 
         processed_count += 1
 
-        # Save progress every 'save_interval' URLs
         if processed_count % save_interval == 0:
             os.system("rm webgraph.json")
             print(f"Saving progress at {processed_count} URLs processed...")
@@ -58,7 +53,6 @@ def build_web_graph(start_urls, max_depth, save_interval=100):
 
     return graph
 
-# Function to save the graph to JSON
 def save_graph(graph, filename="webgraph.json"):
     data = {
         "nodes": list(graph.nodes),
@@ -67,7 +61,6 @@ def save_graph(graph, filename="webgraph.json"):
     with open(filename, "w") as f:
         json.dump(data, f, indent=2)
 
-# Example usage
 if __name__ == "__main__":
     start_urls = ["https://en.wikipedia.org/wiki/Web_graph"]
     web_graph = build_web_graph(start_urls, max_depth=3)

@@ -1,21 +1,19 @@
 import json
 
-def save_to_json(data, filename="rev_keywords_npr.json"):
+def save_to_json(data, filename="rev_keywords_wiki.json"):
     try:
         with open(filename, "r") as file:
             existing_data = json.load(file)
     except (FileNotFoundError, json.JSONDecodeError):
         existing_data = {}
 
-    # Add new data to the existing JSON data
     existing_data.update(data)
 
-    # Write the updated data back to the file
     with open(filename, "w") as file:
         json.dump(existing_data, file, indent=4)
 
 
-with open("keywords_npr.json", "r") as f:
+with open("keywords_wiki.json", "r") as f:
     data = json.load(f)
 
 ma = {}

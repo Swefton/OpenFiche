@@ -4,9 +4,8 @@ import re
 import json
 
 app = Flask(__name__)
-CORS(app)  # Allows all domains (Not secure for production)
+CORS(app)
 
-# Load data
 with open("rev_keywords_npr.json", "r") as f:
     data = json.load(f)
 
@@ -44,9 +43,9 @@ def search():
                     poss[l] = 1
 
     results = [(poss[l] * scores[l], l) for l in poss]
-    results.sort(reverse=True)  # Sort descending
-
-    return jsonify(results[:10])  # Return top 10 results
+    results.sort(reverse=True)  
+    
+    return jsonify(results[:10])
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
