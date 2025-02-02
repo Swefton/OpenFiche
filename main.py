@@ -26,6 +26,7 @@ class BrowserWindow(QMainWindow):
 
         self.reader_mode = False
         self.graph = nx.DiGraph()
+        self.current_node = None  # Keeps track of the active node
         self.current_url = "https://www.reada.wiki/"
         self.previous_url = None
         self.current_title = "Home"
@@ -228,19 +229,23 @@ class BrowserWindow(QMainWindow):
         node_mapping = {tuple(pos): node for node, pos in node_positions.items()}
 
         def on_node_clicked(plot, points):
-            """Handle clicks on graph nodes to navigate to the corresponding URL."""
+            """Handle clicks on graph nodes to navigate and track the selected node."""
             for p in points:
                 clicked_pos = (p.pos().x(), p.pos().y())
                 node_name = node_mapping.get(clicked_pos, None)
 
                 if node_name:
-                    # Get URL from node attributes
+                    # Update current active node
+                    self.current_node = node_name  
+                    
+                    # Get URL from node attributes and navigate
                     node_data = self.graph.nodes.get(node_name, {})
                     url = node_data.get("url")
 
                     if url:
                         self.browser.setUrl(QUrl(url))
                         self.toggle_history_view()
+
 
         scatter.sigClicked.connect(on_node_clicked)
 
@@ -253,19 +258,21 @@ class BrowserWindow(QMainWindow):
     def on_load_finished(self, success):
         """Handle actions after a page has finished loading."""
         if success:
-            if self.previous_url and self.current_url != self.previous_url:
-                previous_title = self.get_title_from_url(self.previous_url).strip()
-                current_title = self.get_title_from_url(self.current_url).strip()
+            current_title = self.get_title_from_url(self.current_url).strip()
 
-                # Add nodes with URL as an attribute
-                self.graph.add_node(previous_title, url=self.previous_url)
-                self.graph.add_node(current_title, url=self.current_url)
+            # Add new node
+            self.graph.add_node(current_title, url=self.current_url)
 
-                # Connect nodes with an edge
-                if previous_title != current_title:
-                    self.graph.add_edge(previous_title, current_title)
+            # If a previous node was selected, create an edge
+            if self.current_node and self.current_node != current_title:
+                self.graph.add_edge(self.current_node, current_title)
 
-                self.print_graph()
+            # Update the current node to the new one
+            self.current_node = current_title
+
+            # NOTE for debugging
+            # self.print_graph()
+
 
     def print_graph(self):
         """Print the current state of the graph to the terminal."""
