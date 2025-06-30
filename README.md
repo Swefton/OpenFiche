@@ -1,8 +1,11 @@
-# psychic-umbrella
-Something to do with browsers I think, research focussed, no modern bloat.
+# OpenFiche Search API
 
-browser
-search engine
-reader mode, very minimal dark mode
-page rank
-light weight and fast
+Docker container for opening a port and listening for search calls.
+
+```zsh
+docker build -t openfiche-search-api .
+```
+
+```zsh
+docker run -p 8080:8080 openfiche-search-api
+```
